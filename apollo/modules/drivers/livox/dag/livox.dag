@@ -1,0 +1,19 @@
+# Define all coms in DAG streaming.
+
+##################################################
+#                   drivers                      #
+##################################################
+
+module_config {
+    module_library : "/apollo/bazel-bin/modules/drivers/livox/driver/liblivox_driver_component.so"
+
+    components {
+      class_name : "LivoxDriverComponent"
+      config {
+        name : "livox_hub_driver"
+        config_file_path : "/apollo/modules/drivers/livox/conf/livox_conf.pb.txt"
+      }
+    }
+}
+
+

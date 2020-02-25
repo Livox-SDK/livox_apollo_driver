@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package apollo.drivers.livox;
+
+enum PointCloudReturnMode {
+    FirstReturn = 0;
+    StrongestReturn = 1;
+    DualReturn = 2;
+}
+
+message LidarConfig {
+    repeated LidarConfigInfo lidar_conf = 1;
+}
+
+message LidarConfigInfo {
+    optional string frame_id = 1;
+    optional string sn = 2;
+    optional string convert_channel_name = 3;
+    optional bool fan_status = 4;
+    optional PointCloudReturnMode return_mode = 5;
+}
+
+message Config {
+    optional bool use_hub = 1;
+    optional string hub_sn = 2;
+    optional LidarConfig lidars_conf = 3;
+}
