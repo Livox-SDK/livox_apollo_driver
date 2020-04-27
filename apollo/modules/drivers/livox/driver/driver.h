@@ -42,7 +42,7 @@ class LivoxDriver {
                                   PointCloud *pc);
 
   using PointCloudCallback = std::function<void(
-      std::string sn, LivoxEthPacket *data, uint32_t data_num)>;
+      uint8_t hub_port, LivoxEthPacket *data, uint32_t data_num)>;
   void SetPointCloudCallback(const PointCloudCallback &data_cb) {
     data_cb_ = data_cb;
   };

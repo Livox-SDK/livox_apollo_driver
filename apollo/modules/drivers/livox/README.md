@@ -19,18 +19,17 @@ proto: [modules/drivers/proto/pointcloud.proto]https://github.com/ApolloAuto/apo
 ### Config file
 ```
 use_hub: true
-hub_sn: "13UUG1R00400170"
 lidars_conf {
   lidar_conf {
     frame_id: "livox_horizon_front_center"
-    sn: "1HDDG8M00100191"
+    hub_port: 1
     convert_channel_name: "/apollo/sensor/livox/front/center/PointCloud2"
     fan_status : true
     return_mode : DualReturn
   }
   lidar_conf {
     frame_id: "livox_horizon_front_left"
-    sn: "1HDDGAU00100351"
+    hub_port: 2
     convert_channel_name: "/apollo/sensor/livox/front/left/PointCloud2"
     fan_status : true
     return_mode : DualReturn
@@ -38,12 +37,11 @@ lidars_conf {
   ...
 }
 ```
-`use_hub` represents wether to use Livox Hub device，`hub_sn` represents Hub device's broadcast code. `lidars_conf` contains each LiDAR's configuration parameters, each LiDAR corresponds to a `lidar_conf`. `sn` represents LiDAR's broadcast code. `convert_channel_name` represents LiDAR's point cloud output channel. `fan_status` represents turn on/off fan. `return_mode` represents return mode of point cloud，it can be configured to：(1) FirstReturn; (2) StrongestReturn; (3) DualReutrn.
+`use_hub` represents wether to use Livox Hub device，currently only support use Livox Hub. `hub_port` represents Livox Hub device's hardware port number. `lidars_conf` contains each LiDAR's configuration parameters, each LiDAR corresponds to a `lidar_conf`. `sn` represents LiDAR's broadcast code. `convert_channel_name` represents LiDAR's point cloud output channel. `fan_status` represents turn on/off fan. `return_mode` represents return mode of point cloud，it can be configured to：(1) FirstReturn; (2) StrongestReturn; (3) DualReutrn.
 
 **Notice**
 
     1. MID40/100 don't support config `return_mode` and `fan_status`.
-    2. Broadcast code consists of its serial number and an additional number. The serial number can be found on the body of the LiDAR unit (below the QR code). Hub's additional number is 0. MID-40, Horizon or Tele's additional number is 1. MID-100's additional number 1,2,3 corresponds to left,middle,right device. eg, if Hub's serial number is "13UUG1R0040017", then Hub's boradcast code is "13UUG1R00400170".
 
 
 ### How to add to Apollo Project

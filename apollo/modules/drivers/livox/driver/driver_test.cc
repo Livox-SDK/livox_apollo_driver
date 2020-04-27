@@ -36,23 +36,22 @@ TEST(LivoxDriverTest, General) {
   AINFO << "Livox driver component init";
   Config config;
   config.set_use_hub(true);
-  config.set_hub_sn("13UUG1R00400170");
   LidarConfig *lidars_config = config.mutable_lidars_conf();
   LidarConfigInfo *lidar_conf_info = lidars_config->add_lidar_conf();
   lidar_conf_info->set_return_mode(FirstReturn);
-  lidar_conf_info->set_sn("1HDDG8M00100191");
+  lidar_conf_info->set_hub_port(1);
   lidar_conf_info->set_fan_status(true);
 
   lidar_conf_info = lidars_config->add_lidar_conf();
   lidar_conf_info->set_return_mode(FirstReturn);
-  lidar_conf_info->set_sn("1HDDGAU00100351");
+  lidar_conf_info->set_hub_port(2);
   lidar_conf_info->set_fan_status(true);
 
   auto driver = LivoxDriverFactory::CreateDriver(config);
   EXPECT_NE(driver, nullptr);
 
   EXPECT_TRUE(driver->DriverInit());
-  driver->SetPointCloudCallback([&](std::string sn, LivoxEthPacket *data,
+  driver->SetPointCloudCallback([&](uint8_t hub_port, LivoxEthPacket *data,
                                     uint32_t data_num) {
     EXPECT_NE(data, nullptr);
     std::shared_ptr<PointCloud> point_cloud = std::make_shared<PointCloud>();

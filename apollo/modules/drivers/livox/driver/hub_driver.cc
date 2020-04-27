@@ -53,8 +53,7 @@ bool LivoxHubDriver::DriverInit() {
   AINFO << "Livox SDK version" << sdkversion.major << "." << sdkversion.minor
         << "." << sdkversion.patch;
 
-  AddHubToConnect(config_.hub_sn().c_str(), &hub_handle_);
-  SetDataCallback(hub_handle_, LivoxHubDriver::HubDataCb, this);
+  SetBroadcastCallback(LivoxHubDriver::OnDeviceBroadcast);
   SetDeviceStateUpdateCallback(LivoxHubDriver::OnDeviceInfoChange);
 
   // Start livox sdk to receive lidar data
@@ -93,25 +92,41 @@ void LivoxHubDriver::HubDataCb(uint8_t hub_handle, LivoxEthPacket *data,
   }
 
   if (hub_driver) {
-    hub_driver->PointCloudProcessCallback(handle, data, data_num);
+    hub_driver->PointCloudProcessCallback(data, data_num);
   } else {
     AERROR << "lds_hub does not exits";
   }
 }
 
-void LivoxHubDriver::PointCloudProcessCallback(uint8_t handle,
-                                               LivoxEthPacket *data,
+void LivoxHubDriver::PointCloudProcessCallback(LivoxEthPacket *data,
                                                uint32_t data_num) {
-  if (lidar_conf_.find(handle) == lidar_conf_.end()) {
+  if (!data) {
     return;
   }
 
-  auto sn = lidar_conf_[handle];
+  uint8_t hub_port = data->slot;
+
   if (data_cb_) {
-    data_cb_(sn, data, data_num);
+    data_cb_(hub_port, data, data_num);
   } else {
     AERROR << "Data cb does not exits";
   }
+}
+
+void LivoxHubDriver::OnDeviceBroadcast(const BroadcastDeviceInfo *info) {
+  if (!info) {
+    return;
+  }
+
+  if (info->dev_type != kDeviceTypeHub) {
+    AWARN << "It's Not Livox Hub";
+    return;
+  }
+
+  uint8_t hub_handle = kMaxLidarCount - 1;
+  AddHubToConnect(info->broadcast_code, &hub_handle);
+  SetDataCallback(hub_handle, LivoxHubDriver::HubDataCb, (void *)g_hub_driver);
+  g_hub_driver->SetHubHandle(hub_handle);
 }
 
 /** @brief Callback function of changing of device state. */
@@ -122,16 +137,16 @@ void LivoxHubDriver::OnDeviceInfoChange(const DeviceInfo *info,
   }
 
   if (type == kEventDisconnect) {
-    AERROR << "Hub: " << info->broadcast_code << "Disconnect!";
+    AERROR << "Hub: " << info->broadcast_code << " Disconnect!";
   } else if (type == kEventStateChange) {
-    AWARN << "Hub: " << info->broadcast_code << "StateChange!";
+    AWARN << "Hub: " << info->broadcast_code << " StateChange!";
   } else if (type == kEventHubConnectionChange) {
-    AINFO << "Hub: " << info->broadcast_code << "Connect!";
+    AINFO << "Hub: " << info->broadcast_code << " Connect!";
   }
 
   AINFO << "info->state: " << info->state;
   if (info->state != kLidarStateNormal) {
-    AINFO << "Hub StateNormal";
+    AINFO << "Hub State Not Normal";
     return;
   }
 
@@ -177,9 +192,8 @@ void LivoxHubDriver::HubQueryLidarInfo(std::function<void(bool)> callback) {
 
         for (int i = 0; i < response->count; i++) {
           ConnectedLidarInfo lidar_info = response->device_info_list[i];
-          devices_.push_back(lidar_info);
-          uint8_t handle = HubGetLidarHandle(lidar_info.slot, lidar_info.id);
-          lidar_conf_[handle] = lidar_info.broadcast_code;
+          uint8_t hub_port = lidar_info.slot;
+          devices_[hub_port].push_back(lidar_info);
         }
         callback(true);
       });
@@ -217,19 +231,28 @@ void LivoxHubDriver::HubConfigPointCloudReturnMode(
       (HubSetPointCloudReturnModeRequest *)req_buf;
 
   for (auto config : config_.lidars_conf().lidar_conf()) {
+    uint8_t hub_port = (uint8_t)config.hub_port();
+
     if (!config.has_return_mode()) {
-      AWARN << config.sn() << " not config return mode";
+      AWARN << "hub_port: "<< hub_port << " not config return mode";
       continue;
     }
 
-    if (IsMid40(config.sn())) {
-      AWARN << "Mid40 :" << config.sn() << " not support config return mode";
+    if (IsMid40(hub_port)) {
+      AWARN << "hub_port: " << hub_port << " not support config return mode";
       continue;
     }
-    strncpy(req->lidar_cfg_list[req->count].broadcast_code, config.sn().c_str(),
-            sizeof(req->lidar_cfg_list[req->count].broadcast_code));
-    req->lidar_cfg_list[req->count].mode = config.return_mode();
-    req->count++;
+
+    if (devices_.find(hub_port) == devices_.end()) {
+      continue;
+    }
+
+    for (const auto &device : devices_[hub_port]) {
+      strncpy(req->lidar_cfg_list[req->count].broadcast_code, device.broadcast_code,
+              sizeof(req->lidar_cfg_list[req->count].broadcast_code));
+      req->lidar_cfg_list[req->count].mode = config.return_mode();
+      req->count++;
+    }
   }
 
   if (req->count == 0) {
@@ -264,20 +287,27 @@ void LivoxHubDriver::HubConfigFan(std::function<void(bool)> callback) {
   HubFanControlRequest *req = (HubFanControlRequest *)req_buf;
 
   for (auto config : config_.lidars_conf().lidar_conf()) {
+    uint8_t hub_port = (uint8_t)config.hub_port();
     if (!config.has_fan_status()) {
-      AWARN << config.sn() << " not config fan state";
+      AWARN << hub_port << " not config fan state";
       continue;
     }
 
-    if (IsMid40(config.sn())) {
-      AWARN << "Mid40 :" << config.sn() << " not support config fan";
+    if (IsMid40(hub_port)) {
+      AWARN << "hub_port: " << hub_port << " not support config fan";
       continue;
     }
 
-    strncpy(req->lidar_cfg_list[req->count].broadcast_code, config.sn().c_str(),
-            sizeof(req->lidar_cfg_list[req->count].broadcast_code));
-    req->lidar_cfg_list[req->count].state = config.fan_status();
-    req->count++;
+    if (devices_.find(hub_port) == devices_.end()) {
+      continue;
+    }
+
+    for (const auto &device : devices_[hub_port]) {
+      strncpy(req->lidar_cfg_list[req->count].broadcast_code, device.broadcast_code,
+              sizeof(req->lidar_cfg_list[req->count].broadcast_code));
+      req->lidar_cfg_list[req->count].state = config.fan_status();
+      req->count++;
+    }
   }
 
   if (req->count == 0) {
@@ -333,14 +363,15 @@ void LivoxHubDriver::HubSampling() {
   HubStartSampling(global_callback<uint8_t>, func_callback);
 }
 
-bool LivoxHubDriver::IsMid40(std::string sn) {
-  for (const auto &device : devices_) {
-    if (strncmp(device.broadcast_code, sn.c_str(),
-                sizeof(device.broadcast_code)) == 0 &&
-        device.dev_type == kDeviceTypeLidarMid40) {
-      return true;
-    }
+bool LivoxHubDriver::IsMid40(uint8_t hub_port) {
+  if (devices_.find(hub_port) == devices_.end()) {
+    return false;
   }
+
+  if (devices_[hub_port].front().dev_type == kDeviceTypeLidarMid40) {
+    return true;
+  }
+
   return false;
 }
 

@@ -1,16 +1,15 @@
 use_hub: true
-hub_sn: "13UUG1R00400170"
 lidars_conf {
   lidar_conf {
     frame_id: "livox_horizon_front_center"
-    sn: "1HDDG8M00100191"
+    hub_port: 1
     convert_channel_name: "/apollo/sensor/livox/front/center/PointCloud2"
     fan_status : true
     return_mode : DualReturn
   }
   lidar_conf {
     frame_id: "livox_horizon_front_left"
-    sn: "1HDDGAU00100351"
+    hub_port: 2
     convert_channel_name: "/apollo/sensor/livox/front/left/PointCloud2"
     fan_status : true
     return_mode : DualReturn

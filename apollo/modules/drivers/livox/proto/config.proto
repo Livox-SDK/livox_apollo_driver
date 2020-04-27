@@ -14,7 +14,7 @@ message LidarConfig {
 
 message LidarConfigInfo {
     optional string frame_id = 1;
-    optional string sn = 2;
+    optional uint32 hub_port = 2;
     optional string convert_channel_name = 3;
     optional bool fan_status = 4;
     optional PointCloudReturnMode return_mode = 5;
@@ -22,6 +22,5 @@ message LidarConfigInfo {
 
 message Config {
     optional bool use_hub = 1;
-    optional string hub_sn = 2;
-    optional LidarConfig lidars_conf = 3;
+    optional LidarConfig lidars_conf = 2;
 }

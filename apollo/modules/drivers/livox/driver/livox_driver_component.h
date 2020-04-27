@@ -35,12 +35,12 @@ class LivoxDriverComponent : public Component<> {
   bool Init() override;
 
  private:
-  void point_cloud_process(std::string sn, LivoxEthPacket *data,
+  void point_cloud_process(uint8_t hub_port, LivoxEthPacket *data,
                            uint32_t data_num);
   std::shared_ptr<CCObjectPool<PointCloud>> point_cloud_pool_ = nullptr;
   int pool_size_ = 8;
   std::unique_ptr<LivoxDriver> dvr_;  ///< driver implementation class
-  std::map<std::string,
+  std::map<uint8_t,
            std::pair<std::string, std::shared_ptr<Writer<PointCloud>>>>
       devices_;
 };

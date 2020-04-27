@@ -36,11 +36,11 @@ bool LivoxDriverComponent::Init() {
 
   for (const auto& lidar_conf : livox_config.lidars_conf().lidar_conf()) {
     auto channel_name = lidar_conf.convert_channel_name();
-    auto sn = lidar_conf.sn();
+    uint8_t hub_port = (uint8_t)lidar_conf.hub_port();
     auto frame_id = lidar_conf.frame_id();
 
     auto writer = node_->CreateWriter<PointCloud>(channel_name);
-    devices_[sn] = make_pair(frame_id, writer);
+    devices_[hub_port] = make_pair(frame_id, writer);
   }
 
   point_cloud_pool_.reset(new CCObjectPool<PointCloud>(pool_size_));
@@ -73,7 +73,7 @@ bool LivoxDriverComponent::Init() {
 }
 
 /** @brief Point cloud process. */
-void LivoxDriverComponent::point_cloud_process(std::string sn,
+void LivoxDriverComponent::point_cloud_process(uint8_t hub_port,
                                                LivoxEthPacket* data,
                                                uint32_t data_num) {
   if (!data) {
@@ -95,10 +95,15 @@ void LivoxDriverComponent::point_cloud_process(std::string sn,
     AWARN << "point cloud out is nullptr";
     return;
   }
+
   point_cloud_out->Clear();
 
-  auto frame_id = devices_[sn].first;
-  auto writer = devices_[sn].second;
+  if (devices_.find(hub_port) == devices_.end()) {
+    return;
+  }
+
+  auto frame_id = devices_[hub_port].first;
+  auto writer = devices_[hub_port].second;
 
   point_cloud_out->mutable_header()->set_frame_id(frame_id);
   point_cloud_out->mutable_header()->set_timestamp_sec(

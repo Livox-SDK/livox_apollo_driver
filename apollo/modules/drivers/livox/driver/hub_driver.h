@@ -39,15 +39,15 @@ class LivoxHubDriver : public LivoxDriver {
   bool DriverInit() override;
   void DriverUninit() override;
   void HubStartSample();
-  void PointCloudProcessCallback(uint8_t hub_handle, LivoxEthPacket *data,
+  void PointCloudProcessCallback(LivoxEthPacket *data,
                                  uint32_t data_num);
+  void SetHubHandle(uint8_t hub_handle) { hub_handle_ = hub_handle; };
 
  private:
   uint8_t hub_handle_;
-  std::vector<ConnectedLidarInfo> devices_;
-  std::map<uint8_t, std::string> lidar_conf_;
+  std::map<uint8_t, std::vector<ConnectedLidarInfo>> devices_;
 
-  bool IsMid40(std::string sn);
+  bool IsMid40(uint8_t hub_port);
   void HubQueryLidarInfo(std::function<void(bool)> callback);
 
   void HubConfig(std::function<void(bool)> callback);
@@ -57,6 +57,7 @@ class LivoxHubDriver : public LivoxDriver {
   void HubSampling();
 
   static void OnDeviceInfoChange(const DeviceInfo *info, DeviceEvent type);
+  static void OnDeviceBroadcast(const BroadcastDeviceInfo *info);
   static void HubDataCb(uint8_t hub_handle, LivoxEthPacket *data,
                         uint32_t data_num, void *client_data);
 };
