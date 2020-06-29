@@ -37,12 +37,14 @@ class LivoxDriverComponent : public Component<> {
  private:
   void point_cloud_process(uint8_t hub_port, LivoxEthPacket *data,
                            uint32_t data_num);
-  std::shared_ptr<CCObjectPool<PointCloud>> point_cloud_pool_ = nullptr;
-  int pool_size_ = 8;
+  std::map<uint8_t, std::shared_ptr<PointCloud>> point_cloud_pool_;
+  std::map<uint8_t, uint64_t> point_cloud_time_last_;
   std::unique_ptr<LivoxDriver> dvr_;  ///< driver implementation class
   std::map<uint8_t,
            std::pair<std::string, std::shared_ptr<Writer<PointCloud>>>>
       devices_;
+  uint32_t publish_frequency_ = 10;
+  uint64_t publish_interval_;
 };
 
 CYBER_REGISTER_COMPONENT(LivoxDriverComponent)

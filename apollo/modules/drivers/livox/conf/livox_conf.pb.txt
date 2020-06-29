@@ -1,17 +1,25 @@
 use_hub: true
+publish_frequency: 10
 lidars_conf {
   lidar_conf {
     frame_id: "livox_horizon_front_center"
     hub_port: 1
     convert_channel_name: "/apollo/sensor/livox/front/center/PointCloud2"
     fan_status : true
-    return_mode : DualReturn
+    return_mode : FirstReturn
   }
   lidar_conf {
     frame_id: "livox_horizon_front_left"
     hub_port: 2
     convert_channel_name: "/apollo/sensor/livox/front/left/PointCloud2"
     fan_status : true
-    return_mode : DualReturn
+    return_mode : FirstReturn
+  }
+  lidar_conf {
+    frame_id: "livox_horizon_front_right"
+    hub_port: 3
+    convert_channel_name: "/apollo/sensor/livox/front/right/PointCloud2"
+    fan_status : true
+    return_mode : FirstReturn
   }
 }

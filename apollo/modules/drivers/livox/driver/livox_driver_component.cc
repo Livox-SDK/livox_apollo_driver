@@ -21,6 +21,8 @@ namespace apollo {
 namespace drivers {
 namespace livox {
 
+const uint64_t kSeconds = 1000000000; // ns
+
 bool LivoxDriverComponent::Init() {
   AINFO << "Livox driver component init";
   Config livox_config;
@@ -34,6 +36,12 @@ bool LivoxDriverComponent::Init() {
     return false;
   }
 
+  if (livox_config.has_publish_frequency()) {
+     publish_frequency_ = livox_config.publish_frequency();
+  }
+
+  publish_interval_ = (uint64_t)(kSeconds / publish_frequency_);
+
   for (const auto& lidar_conf : livox_config.lidars_conf().lidar_conf()) {
     auto channel_name = lidar_conf.convert_channel_name();
     uint8_t hub_port = (uint8_t)lidar_conf.hub_port();
@@ -41,18 +49,14 @@ bool LivoxDriverComponent::Init() {
 
     auto writer = node_->CreateWriter<PointCloud>(channel_name);
     devices_[hub_port] = make_pair(frame_id, writer);
+
+    point_cloud_time_last_[hub_port] = 0;
+
+    std::shared_ptr<PointCloud> point_cloud = std::make_shared<PointCloud>();
+    point_cloud->mutable_point()->Reserve(50000);
+    point_cloud_pool_[hub_port] = point_cloud;
   }
 
-  point_cloud_pool_.reset(new CCObjectPool<PointCloud>(pool_size_));
-  point_cloud_pool_->ConstructAll();
-  for (int i = 0; i < pool_size_; i++) {
-    auto point_cloud = point_cloud_pool_->GetObject();
-    if (point_cloud == nullptr) {
-      AERROR << "fail to getobject, i: " << i;
-      return false;
-    }
-    point_cloud->mutable_point()->Reserve(10000);
-  }
   AINFO << "Point cloud comp convert init success";
 
   auto driver = LivoxDriverFactory::CreateDriver(livox_config);
@@ -85,22 +89,38 @@ void LivoxDriverComponent::point_cloud_process(uint8_t hub_port,
     AWARN << "point cloud timestamp type is not gps sync";
   }
 
-  std::shared_ptr<PointCloud> point_cloud_out = point_cloud_pool_->GetObject();
-  if (!point_cloud_out) {
-    AWARN << "point cloud pool return nullptr, will be create new.";
-    point_cloud_out = std::make_shared<PointCloud>();
-    point_cloud_out->mutable_point()->Reserve(10000);
+  if (devices_.find(hub_port) == devices_.end()) {
+    return;
   }
+
+  std::shared_ptr<PointCloud> point_cloud_out = point_cloud_pool_[hub_port];
+
   if (!point_cloud_out) {
     AWARN << "point cloud out is nullptr";
     return;
   }
 
-  point_cloud_out->Clear();
+  //AINFO << "Lidar handle " << (int)hub_port;
+  if (!dvr_->ConvertPacketsToPointcloud(data, data_num, point_cloud_out.get())) {
+     return;
+  }
 
-  if (devices_.find(hub_port) == devices_.end()) {
+  uint64_t point_cloud_time_now = dvr_->GetStoragePacketTimestamp(data);
+  uint64_t point_cloud_time_last = point_cloud_time_last_[hub_port];
+  if (point_cloud_time_last == 0) {
+    point_cloud_time_last_[hub_port] = point_cloud_time_now;
+    return;
+  } else if (point_cloud_time_now - point_cloud_time_last < publish_interval_) {
+    //AINFO << "now: " << point_cloud_time_now << "last: " << point_cloud_time_last;
     return;
   }
+
+  point_cloud_time_last_[hub_port] = point_cloud_time_now;
+
+  if (!point_cloud_out || point_cloud_out->point().empty()) {
+    // AERROR << "point cloud has no point";
+    return;
+  } 
 
   auto frame_id = devices_[hub_port].first;
   auto writer = devices_[hub_port].second;
@@ -109,14 +129,8 @@ void LivoxDriverComponent::point_cloud_process(uint8_t hub_port,
   point_cloud_out->mutable_header()->set_timestamp_sec(
       cyber::Time().Now().ToSecond());
 
-  dvr_->ConvertPacketsToPointcloud(data, data_num, point_cloud_out.get());
-
-  if (!point_cloud_out || point_cloud_out->point().empty()) {
-    // AERROR << "point cloud has no point";
-    return;
-  }
-
   writer->Write(point_cloud_out);
+  point_cloud_out->Clear();
 }
 
 }  // namespace livox

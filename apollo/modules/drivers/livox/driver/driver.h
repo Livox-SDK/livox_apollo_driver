@@ -28,6 +28,16 @@ namespace apollo {
 namespace drivers {
 namespace livox {
 
+typedef union {
+  struct {
+    uint32_t low;
+    uint32_t high;
+  } stamp_word;
+
+  uint8_t stamp_bytes[8];
+  int64_t stamp;
+} LdsStamp;
+
 using apollo::drivers::PointCloud;
 using apollo::drivers::PointXYZIT;
 
@@ -38,8 +48,9 @@ class LivoxDriver {
   virtual bool DriverInit() = 0;
   virtual void DriverUninit() = 0;
 
-  void ConvertPacketsToPointcloud(LivoxEthPacket *data, uint32_t data_num,
+  bool ConvertPacketsToPointcloud(LivoxEthPacket *data, uint32_t data_num,
                                   PointCloud *pc);
+  uint64_t GetStoragePacketTimestamp(LivoxEthPacket *raw_packet);
 
   using PointCloudCallback = std::function<void(
       uint8_t hub_port, LivoxEthPacket *data, uint32_t data_num)>;

@@ -22,5 +22,6 @@ message LidarConfigInfo {
 
 message Config {
     optional bool use_hub = 1;
-    optional LidarConfig lidars_conf = 2;
+    optional uint32 publish_frequency = 2;
+    optional LidarConfig lidars_conf = 3;
 }
